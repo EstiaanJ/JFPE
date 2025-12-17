@@ -41,7 +41,13 @@ public final class CollisionResolution {
             return;
         }
 
-        VectorDouble relativeVelocity = second.velocity().sub(first.velocity());
+        VectorDouble radiusA = collision.contactPoint().sub(first.position());
+        VectorDouble radiusB = collision.contactPoint().sub(second.position());
+
+        VectorDouble angularVelocityA = tangentialVelocity(first.angularVelocity(), radiusA);
+        VectorDouble angularVelocityB = tangentialVelocity(second.angularVelocity(), radiusB);
+
+        VectorDouble relativeVelocity = second.velocity().add(angularVelocityB).sub(first.velocity().add(angularVelocityA));
         double velocityAlongNormal = relativeVelocity.dotProduct(collision.normal());
 
         if (velocityAlongNormal > 0) {
@@ -50,15 +56,22 @@ public final class CollisionResolution {
 
         double restitution = Math.min(first.restitution(), second.restitution());
         double impulseScalar = -(1 + restitution) * velocityAlongNormal;
-        impulseScalar /= inverseMassSum;
+
+        double angularComponentA = Math.pow(radiusA.crossProduct2D(collision.normal()), 2) * first.inverseInertia();
+        double angularComponentB = Math.pow(radiusB.crossProduct2D(collision.normal()), 2) * second.inverseInertia();
+        double denominator = inverseMassSum + angularComponentA + angularComponentB;
+        impulseScalar /= denominator;
 
         VectorDouble impulse = collision.normal().scale(impulseScalar);
 
         VectorDouble firstVelocity = first.velocity().sub(impulse.scale(inverseMassA));
         VectorDouble secondVelocity = second.velocity().add(impulse.scale(inverseMassB));
 
-        Body updatedFirst = first.withVelocity(firstVelocity);
-        Body updatedSecond = second.withVelocity(secondVelocity);
+        double firstAngularVelocity = first.angularVelocity() - radiusA.crossProduct2D(impulse) * first.inverseInertia();
+        double secondAngularVelocity = second.angularVelocity() + radiusB.crossProduct2D(impulse) * second.inverseInertia();
+
+        Body updatedFirst = first.withVelocity(firstVelocity).withAngularVelocity(firstAngularVelocity);
+        Body updatedSecond = second.withVelocity(secondVelocity).withAngularVelocity(secondAngularVelocity);
 
         VectorDouble correction = collision.normal().scale(collision.penetration() / inverseMassSum);
         updatedFirst = updatedFirst.withPosition(updatedFirst.position().sub(correction.scale(inverseMassA)));
@@ -66,5 +79,9 @@ public final class CollisionResolution {
 
         bodies.put(collision.firstIndex(), updatedFirst);
         bodies.put(collision.secondIndex(), updatedSecond);
+    }
+
+    private static VectorDouble tangentialVelocity(double angularVelocity, VectorDouble radius) {
+        return new VectorDouble(-angularVelocity * radius.y(), angularVelocity * radius.x());
     }
 }

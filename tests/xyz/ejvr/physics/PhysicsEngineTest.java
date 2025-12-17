@@ -16,8 +16,12 @@ class PhysicsEngineTest {
                 new VectorDouble(0, 0),
                 new VectorDouble(2, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
 
@@ -35,8 +39,12 @@ class PhysicsEngineTest {
                 new VectorDouble(1.2, 1.0),
                 new VectorDouble(-3.0, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
 
@@ -45,7 +53,7 @@ class PhysicsEngineTest {
         World result = PhysicsEngine.step(world, 0.5);
 
         Body updatedBody = result.bodies().getFirst();
-        assertEquals(1.0 + ((Circle) body.shape()).radius(), updatedBody.position().x());
+        assertEquals(boundary.minX() + ((Circle) body.shape()).radius(), updatedBody.position().x());
         assertTrue(updatedBody.velocity().x() > 0);
     }
 
@@ -56,8 +64,12 @@ class PhysicsEngineTest {
                 new VectorDouble(0, 0),
                 new VectorDouble(1.0, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
         Body second = new Body(
@@ -65,8 +77,12 @@ class PhysicsEngineTest {
                 new VectorDouble(1.5, 0),
                 new VectorDouble(-1.0, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
 
@@ -85,7 +101,7 @@ class PhysicsEngineTest {
     @Test
     void bouncesCircleOffBoundary() {
         Boundary boundary = new Boundary(0, 0, 10, 10);
-        Body movingCircle = new Body(new Circle(1), new VectorDouble(9, 5), new VectorDouble(2, 0), ZERO, 1, 0.5, false);
+        Body movingCircle = new Body(new Circle(1), new VectorDouble(9, 5), new VectorDouble(2, 0), ZERO, 0.0, 0.0, 0.0, 1, 0.5, 0.0, false);
         World initial = new World(List.of(movingCircle), List.of(boundary));
 
         World stepped = PhysicsEngine.step(initial, 1.0);
@@ -99,8 +115,8 @@ class PhysicsEngineTest {
 
     @Test
     void resolvesHeadOnCollisionBetweenEqualCircles() {
-        Body first = new Body(new Circle(1), new VectorDouble(0, 0), new VectorDouble(1, 0), ZERO, 1, 1, false);
-        Body second = new Body(new Circle(1), new VectorDouble(1.5, 0), new VectorDouble(-1, 0), ZERO, 1, 1, false);
+        Body first = new Body(new Circle(1), new VectorDouble(0, 0), new VectorDouble(1, 0), ZERO, 0.0, 0.0, 0.0, 1, 1, 0.0, false);
+        Body second = new Body(new Circle(1), new VectorDouble(1.5, 0), new VectorDouble(-1, 0), ZERO, 0.0, 0.0, 0.0, 1, 1, 0.0, false);
         World world = new World(List.of(first, second), List.of());
 
         World result = PhysicsEngine.step(world, 0.0);
@@ -111,5 +127,69 @@ class PhysicsEngineTest {
         assertEquals(1.0, resolvedSecond.velocity().x(), 1e-9);
         assertEquals(-0.25, resolvedFirst.position().x(), 1e-9);
         assertEquals(1.75, resolvedSecond.position().x(), 1e-9);
+    }
+
+    @Test
+    void appliesDragAndAngularIntegration() {
+        Body body = new Body(
+                new Circle(1),
+                new VectorDouble(0, 0),
+                new VectorDouble(10, 0),
+                ZERO,
+                0.0,
+                4.0,
+                0.0,
+                1,
+                0.9,
+                0.5,
+                false
+        );
+
+        World initial = new World(List.of(body), List.of());
+        World stepped = PhysicsEngine.step(initial, 1.0);
+        Body result = stepped.bodies().getFirst();
+
+        assertEquals(5.0, result.velocity().x(), 1e-9);
+        assertEquals(2.0, result.orientation(), 1e-9);
+        assertEquals(2.0, result.angularVelocity(), 1e-9);
+    }
+
+    @Test
+    void generatesAngularVelocityOnOffsetCollision() {
+        Body first = new Body(
+                new AxisAlignedRectangle(1.0, 1.0),
+                new VectorDouble(0, 0),
+                new VectorDouble(1.0, 0),
+                ZERO,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                false
+        );
+        Body second = new Body(
+                new AxisAlignedRectangle(1.0, 1.0),
+                new VectorDouble(1.5, 0.75),
+                new VectorDouble(-1.0, 0),
+                ZERO,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                1.0,
+                0.0,
+                false
+        );
+
+        World world = new World(List.of(first, second), List.of());
+        World result = PhysicsEngine.step(world, 0.0);
+
+        Body resolvedFirst = result.bodies().getFirst();
+        Body resolvedSecond = result.bodies().get(1);
+
+        assertTrue(Math.abs(resolvedFirst.angularVelocity()) > 0.0);
+        assertTrue(Math.abs(resolvedSecond.angularVelocity()) > 0.0);
     }
 }
