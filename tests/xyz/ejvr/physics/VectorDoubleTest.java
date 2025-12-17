@@ -1,94 +1,135 @@
 package xyz.ejvr.physics;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VectorDoubleTest {
 
-    @org.junit.jupiter.api.Test
+    @Test
     void diffX() {
+        VectorDouble vec = new VectorDouble(4.5, 2.0);
+        assertEquals(2.5, vec.diffX(new VectorDouble(2.0, 1.0)));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void diffY() {
+        VectorDouble vec = new VectorDouble(4.5, 2.0);
+        assertEquals(1.0, vec.diffY(new VectorDouble(1.0, 1.0)));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void radiusSquared() {
+        assertEquals(25.0, new VectorDouble(3, 4).radiusSquared());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void radius() {
+        assertEquals(5.0, new VectorDouble(3, 4).radius());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void angle() {
+        assertEquals(Math.PI / 2, new VectorDouble(0, 2).angle());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void xFloat() {
+        assertEquals(2.5f, new VectorDouble(2.5, 4).xFloat());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void yFloat() {
+        assertEquals(4.5f, new VectorDouble(2, 4.5).yFloat());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void rotateAboutOrigin() {
+        VectorDouble rotated = new VectorDouble(1, 0).rotateAboutOrigin(Math.PI / 2);
+        assertEquals(0.0, rotated.x(), 1e-10);
+        assertEquals(1.0, rotated.y(), 1e-10);
     }
 
-    @org.junit.jupiter.api.Test
-    void testEquals() {
-    }
-
-    @org.junit.jupiter.api.Test
+    @Test
     void distanceBetween() {
+        assertEquals(5.0, new VectorDouble(0, 0).distanceBetween(new VectorDouble(3, 4)));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
+    void distanceSquared() {
+        assertEquals(25.0, new VectorDouble(0, 0).distanceSquared(new VectorDouble(3, 4)));
+    }
+
+    @Test
     void dotProduct() {
+        assertEquals(11.0, new VectorDouble(1, 3).dotProduct(new VectorDouble(2, 3)));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void crossProduct2D() {
+        assertEquals(-1.0, new VectorDouble(1, 0).crossProduct2D(new VectorDouble(0, 1)));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void add() {
+        VectorDouble sum = new VectorDouble(1, 2).add(new VectorDouble(3, 5));
+        assertEquals(new VectorDouble(4, 7), sum);
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void negate() {
+        assertEquals(new VectorDouble(-1, -2), new VectorDouble(1, 2).negate());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void sub() {
+        assertEquals(new VectorDouble(-2, -3), new VectorDouble(1, 2).sub(new VectorDouble(3, 5)));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void tangent() {
+        assertEquals(new VectorDouble(-2, 1), new VectorDouble(1, 2).tangent());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void scale() {
+        assertEquals(new VectorDouble(2, 4), new VectorDouble(1, 2).scale(2));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void normalize() {
+        VectorDouble normalized = new VectorDouble(3, 4).normalize();
+        assertEquals(1.0, normalized.radius(), 1e-10);
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
+    void clamp() {
+        VectorDouble clamped = new VectorDouble(5, -2).clamp(new VectorDouble(0, 0), new VectorDouble(3, 3));
+        assertEquals(new VectorDouble(3, 0), clamped);
+    }
+
+    @Test
     void testToString() {
+        String representation = new VectorDouble(3, 4).toString();
+        assertTrue(representation.contains("r:"));
+        assertTrue(representation.contains("x:"));
+        assertTrue(representation.contains("y:"));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void rotatePoint() {
+        VectorDouble rotated = VectorDouble.rotatePoint(1, 1, Math.PI / 2, new VectorDouble(2, 1));
+        assertEquals(new VectorDouble(1, 2), new VectorDouble(Math.round(rotated.x()), Math.round(rotated.y())));
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void x() {
+        assertEquals(2.5, new VectorDouble(2.5, 3).x());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void y() {
+        assertEquals(3.5, new VectorDouble(2, 3.5).y());
     }
 }
