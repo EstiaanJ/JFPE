@@ -12,9 +12,11 @@ public final class CollisionDetection {
 
     public static List<Collision> detectAll(List<Body> bodies) {
         int bodyCount = bodies.size();
+        List<Aabb> bounds = bodies.stream().map(Body::aabb).toList();
         List<Collision> collisions = new ArrayList<>();
         IntStream.range(0, bodyCount).forEach(firstIndex ->
                 IntStream.range(firstIndex + 1, bodyCount)
+                        .filter(secondIndex -> bounds.get(firstIndex).intersects(bounds.get(secondIndex)))
                         .mapToObj(secondIndex -> detect(firstIndex, secondIndex, bodies.get(firstIndex), bodies.get(secondIndex)))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
@@ -30,14 +32,14 @@ public final class CollisionDetection {
         if (firstShape instanceof Circle firstCircle && secondShape instanceof Circle secondCircle) {
             return detectCircleCircle(firstIndex, secondIndex, first, second, firstCircle, secondCircle);
         }
-        if (firstShape instanceof AxisAlignedRectangle firstRect && secondShape instanceof AxisAlignedRectangle secondRect) {
-            return detectRectangleRectangle(firstIndex, secondIndex, first, second, firstRect, secondRect);
+        if (isRectangle(firstShape) && isRectangle(secondShape)) {
+            return detectOrientedRectangles(firstIndex, secondIndex, first, second, rectangleDimensions(firstShape), rectangleDimensions(secondShape));
         }
-        if (firstShape instanceof Circle circle && secondShape instanceof AxisAlignedRectangle rectangle) {
-            return detectCircleRectangle(firstIndex, secondIndex, first, second, circle, rectangle);
+        if (firstShape instanceof Circle circle && isRectangle(secondShape)) {
+            return detectCircleRectangle(firstIndex, secondIndex, first, second, circle, rectangleDimensions(secondShape));
         }
-        if (firstShape instanceof AxisAlignedRectangle rectangle && secondShape instanceof Circle circle) {
-            return detectCircleRectangle(secondIndex, firstIndex, second, first, circle, rectangle)
+        if (isRectangle(firstShape) && secondShape instanceof Circle circle) {
+            return detectCircleRectangle(secondIndex, firstIndex, second, first, circle, rectangleDimensions(firstShape))
                     .map(collision -> flipNormal(collision, firstIndex, secondIndex));
         }
         if (firstShape instanceof LineSegment line && secondShape instanceof Circle circle) {
@@ -47,15 +49,27 @@ public final class CollisionDetection {
             return detectLineCircle(secondIndex, firstIndex, second, first, line, circle)
                     .map(collision -> flipNormal(collision, firstIndex, secondIndex));
         }
-        if (firstShape instanceof LineSegment line && secondShape instanceof AxisAlignedRectangle rectangle) {
-            return detectLineRectangle(firstIndex, secondIndex, first, second, line, rectangle);
+        if (firstShape instanceof LineSegment line && isRectangle(secondShape)) {
+            return detectLineRectangle(firstIndex, secondIndex, first, second, line, rectangleDimensions(secondShape));
         }
-        if (firstShape instanceof AxisAlignedRectangle rectangle && secondShape instanceof LineSegment line) {
-            return detectLineRectangle(secondIndex, firstIndex, second, first, line, rectangle)
+        if (isRectangle(firstShape) && secondShape instanceof LineSegment line) {
+            return detectLineRectangle(secondIndex, firstIndex, second, first, line, rectangleDimensions(firstShape))
                     .map(collision -> flipNormal(collision, firstIndex, secondIndex));
         }
 
         return Optional.empty();
+    }
+
+    private static boolean isRectangle(Shape shape) {
+        return shape instanceof AxisAlignedRectangle || shape instanceof RotatedRectangle;
+    }
+
+    private static RectangleDimensions rectangleDimensions(Shape shape) {
+        return switch (shape) {
+            case AxisAlignedRectangle rectangle -> new RectangleDimensions(rectangle.halfWidth(), rectangle.halfHeight());
+            case RotatedRectangle rectangle -> new RectangleDimensions(rectangle.halfWidth(), rectangle.halfHeight());
+            default -> throw new IllegalArgumentException("Unsupported rectangle shape: " + shape.getClass());
+        };
     }
 
     private static Optional<Collision> detectCircleCircle(int firstIndex, int secondIndex, Body first, Body second, Circle firstCircle, Circle secondCircle) {
@@ -76,39 +90,57 @@ public final class CollisionDetection {
         return Optional.of(new Collision(firstIndex, secondIndex, normal, penetration, contactPoint));
     }
 
-    private static Optional<Collision> detectRectangleRectangle(
+    private static Optional<Collision> detectOrientedRectangles(
             int firstIndex,
             int secondIndex,
             Body first,
             Body second,
-            AxisAlignedRectangle firstRect,
-            AxisAlignedRectangle secondRect
+            RectangleDimensions firstRect,
+            RectangleDimensions secondRect
     ) {
-        VectorDouble delta = second.position().sub(first.position());
-        double overlapX = firstRect.halfWidth() + secondRect.halfWidth() - Math.abs(delta.x());
-        double overlapY = firstRect.halfHeight() + secondRect.halfHeight() - Math.abs(delta.y());
+        VectorDouble[] firstVertices = first.rectangleVertices(firstRect.halfWidth(), firstRect.halfHeight());
+        VectorDouble[] secondVertices = second.rectangleVertices(secondRect.halfWidth(), secondRect.halfHeight());
 
-        if (overlapX <= 0 || overlapY <= 0) {
+        List<VectorDouble> axes = List.of(
+                rectangleAxis(first.orientation()),
+                rectanglePerpendicularAxis(first.orientation()),
+                rectangleAxis(second.orientation()),
+                rectanglePerpendicularAxis(second.orientation())
+        );
+
+        double minimumOverlap = Double.POSITIVE_INFINITY;
+        VectorDouble collisionAxis = null;
+
+        for (VectorDouble axis : axes) {
+            Projection firstProjection = projectOnto(firstVertices, axis);
+            Projection secondProjection = projectOnto(secondVertices, axis);
+            double overlap = firstProjection.overlap(secondProjection);
+
+            if (overlap <= 0) {
+                return Optional.empty();
+            }
+
+            if (overlap < minimumOverlap) {
+                minimumOverlap = overlap;
+                collisionAxis = axis;
+            }
+        }
+
+        if (collisionAxis == null) {
             return Optional.empty();
         }
 
-        if (overlapX < overlapY) {
-            double normalX = Math.signum(delta.x());
-            VectorDouble normal = new VectorDouble(normalX == 0 ? 1 : normalX, 0);
-            VectorDouble contactPoint = new VectorDouble(
-                    first.position().x() + firstRect.halfWidth() * normal.x(),
-                    first.position().y() + delta.y()
-            );
-            return Optional.of(new Collision(firstIndex, secondIndex, normal, overlapX, contactPoint));
+        VectorDouble normal = collisionAxis.normalize();
+        VectorDouble delta = second.position().sub(first.position());
+        if (delta.dotProduct(normal) < 0) {
+            normal = normal.negate();
         }
 
-        double normalY = Math.signum(delta.y());
-        VectorDouble normal = new VectorDouble(0, normalY == 0 ? 1 : normalY);
-        VectorDouble contactPoint = new VectorDouble(
-                first.position().x() + delta.x(),
-                first.position().y() + firstRect.halfHeight() * normal.y()
-        );
-        return Optional.of(new Collision(firstIndex, secondIndex, normal, overlapY, contactPoint));
+        VectorDouble firstSupport = supportPoint(firstVertices, normal);
+        VectorDouble secondSupport = supportPoint(secondVertices, normal.negate());
+        VectorDouble contactPoint = firstSupport.add(secondSupport).scale(0.5);
+
+        return Optional.of(new Collision(firstIndex, secondIndex, normal, minimumOverlap, contactPoint));
     }
 
     private static Optional<Collision> detectCircleRectangle(
@@ -117,27 +149,47 @@ public final class CollisionDetection {
             Body circleBody,
             Body rectangleBody,
             Circle circle,
-            AxisAlignedRectangle rectangle
+            RectangleDimensions rectangle
     ) {
         VectorDouble circleCenter = circleBody.position();
         VectorDouble rectangleCenter = rectangleBody.position();
-        VectorDouble difference = circleCenter.sub(rectangleCenter);
 
-        VectorDouble closestPoint = difference.clamp(
-                new VectorDouble(-rectangle.halfWidth(), -rectangle.halfHeight()),
-                new VectorDouble(rectangle.halfWidth(), rectangle.halfHeight())
-        ).add(rectangleCenter);
+        VectorDouble relative = circleCenter.sub(rectangleCenter);
+        VectorDouble localCircle = rotate(relative, -rectangleBody.orientation());
 
-        VectorDouble delta = circleCenter.sub(closestPoint);
+        double clampedX = Math.max(-rectangle.halfWidth(), Math.min(rectangle.halfWidth(), localCircle.x()));
+        double clampedY = Math.max(-rectangle.halfHeight(), Math.min(rectangle.halfHeight(), localCircle.y()));
+
+        VectorDouble closestLocal = new VectorDouble(clampedX, clampedY);
+        VectorDouble closestWorld = rotate(closestLocal, rectangleBody.orientation()).add(rectangleCenter);
+
+        VectorDouble delta = circleCenter.sub(closestWorld);
         double distanceSquared = delta.radiusSquared();
-        if (distanceSquared > circle.radius() * circle.radius()) {
+        double radiusSquared = circle.radius() * circle.radius();
+        if (distanceSquared > radiusSquared) {
             return Optional.empty();
         }
 
-        double distance = Math.sqrt(distanceSquared);
-        VectorDouble normal = distance == 0 ? new VectorDouble(1, 0) : delta.scale(1 / distance);
-        double penetration = circle.radius() - distance;
-        return Optional.of(new Collision(circleIndex, rectangleIndex, normal, penetration, closestPoint));
+        VectorDouble normal;
+        if (distanceSquared == 0) {
+            VectorDouble absLocal = new VectorDouble(Math.abs(localCircle.x()), Math.abs(localCircle.y()));
+            VectorDouble localNormal;
+            if (absLocal.x() > absLocal.y()) {
+                localNormal = new VectorDouble(Math.signum(localCircle.x()), 0);
+            } else {
+                localNormal = new VectorDouble(0, Math.signum(localCircle.y()));
+            }
+            if (localNormal.radiusSquared() == 0) {
+                localNormal = new VectorDouble(1, 0);
+            }
+            normal = rotate(localNormal, rectangleBody.orientation());
+        } else {
+            double distance = Math.sqrt(distanceSquared);
+            normal = delta.scale(1 / distance);
+        }
+
+        double penetration = circle.radius() - Math.sqrt(distanceSquared);
+        return Optional.of(new Collision(circleIndex, rectangleIndex, normal, penetration, closestWorld));
     }
 
     private static Optional<Collision> detectLineCircle(
@@ -148,8 +200,8 @@ public final class CollisionDetection {
             LineSegment line,
             Circle circle
     ) {
-        VectorDouble start = line.start().add(lineBody.position());
-        VectorDouble end = line.end().add(lineBody.position());
+        VectorDouble start = lineBody.rotatePoint(line.start()).add(lineBody.position());
+        VectorDouble end = lineBody.rotatePoint(line.end()).add(lineBody.position());
         VectorDouble closest = closestPointOnSegment(start, end, circleBody.position());
         VectorDouble delta = circleBody.position().sub(closest);
         double distanceSquared = delta.radiusSquared();
@@ -170,40 +222,24 @@ public final class CollisionDetection {
             Body lineBody,
             Body rectangleBody,
             LineSegment line,
-            AxisAlignedRectangle rectangle
+            RectangleDimensions rectangle
     ) {
-        VectorDouble start = line.start().add(lineBody.position());
-        VectorDouble end = line.end().add(lineBody.position());
+        VectorDouble start = lineBody.rotatePoint(line.start()).add(lineBody.position());
+        VectorDouble end = lineBody.rotatePoint(line.end()).add(lineBody.position());
 
-        VectorDouble rectCenter = rectangleBody.position();
-        double minX = rectCenter.x() - rectangle.halfWidth();
-        double maxX = rectCenter.x() + rectangle.halfWidth();
-        double minY = rectCenter.y() - rectangle.halfHeight();
-        double maxY = rectCenter.y() + rectangle.halfHeight();
+        VectorDouble[] rectangleVertices = rectangleBody.rectangleVertices(rectangle.halfWidth(), rectangle.halfHeight());
+        List<LineSegment> edges = rectangleEdges(rectangleVertices);
 
-        if (isPointInsideRectangle(start, minX, maxX, minY, maxY)) {
-            VectorDouble normal = outwardNormal(rectCenter, start);
-            double penetration = Math.min(maxX - start.x(), Math.min(start.x() - minX, Math.min(maxY - start.y(), start.y() - minY)));
+        if (isPointInsideOrientedRectangle(start, rectangleBody, rectangle)) {
+            VectorDouble normal = outwardNormal(rectangleBody, rectangle, start);
+            double penetration = penetrationDepth(rectangleBody, rectangle, start);
             return Optional.of(new Collision(lineIndex, rectangleIndex, normal, penetration, start));
         }
-        if (isPointInsideRectangle(end, minX, maxX, minY, maxY)) {
-            VectorDouble normal = outwardNormal(rectCenter, end);
-            double penetration = Math.min(maxX - end.x(), Math.min(end.x() - minX, Math.min(maxY - end.y(), end.y() - minY)));
+        if (isPointInsideOrientedRectangle(end, rectangleBody, rectangle)) {
+            VectorDouble normal = outwardNormal(rectangleBody, rectangle, end);
+            double penetration = penetrationDepth(rectangleBody, rectangle, end);
             return Optional.of(new Collision(lineIndex, rectangleIndex, normal, penetration, end));
         }
-
-        List<VectorDouble> corners = List.of(
-                new VectorDouble(minX, minY),
-                new VectorDouble(maxX, minY),
-                new VectorDouble(maxX, maxY),
-                new VectorDouble(minX, maxY)
-        );
-        List<LineSegment> edges = List.of(
-                new LineSegment(corners.get(0), corners.get(1)),
-                new LineSegment(corners.get(1), corners.get(2)),
-                new LineSegment(corners.get(2), corners.get(3)),
-                new LineSegment(corners.get(3), corners.get(0))
-        );
 
         Optional<VectorDouble> intersection = edges.stream()
                 .map(edge -> segmentIntersection(start, end, edge.start(), edge.end()))
@@ -216,22 +252,31 @@ public final class CollisionDetection {
         }
 
         VectorDouble contact = intersection.get();
-        VectorDouble normal = outwardNormal(rectCenter, contact);
+        VectorDouble normal = outwardNormal(rectangleBody, rectangle, contact);
         double penetration = 0.0;
         return Optional.of(new Collision(lineIndex, rectangleIndex, normal, penetration, contact));
     }
 
-    private static VectorDouble outwardNormal(VectorDouble rectangleCenter, VectorDouble contactPoint) {
-        VectorDouble delta = contactPoint.sub(rectangleCenter);
-        if (delta.x() == 0 && delta.y() == 0) {
-            return new VectorDouble(1, 0);
+    private static VectorDouble outwardNormal(Body rectangleBody, RectangleDimensions rectangle, VectorDouble contactPoint) {
+        VectorDouble localPoint = rotate(contactPoint.sub(rectangleBody.position()), -rectangleBody.orientation());
+        double absX = Math.abs(localPoint.x());
+        double absY = Math.abs(localPoint.y());
+        VectorDouble localNormal;
+        if (absX > absY) {
+            double sign = Math.signum(localPoint.x());
+            localNormal = new VectorDouble(sign == 0 ? 1 : sign, 0);
+        } else {
+            double sign = Math.signum(localPoint.y());
+            localNormal = new VectorDouble(0, sign == 0 ? 1 : sign);
         }
-        if (Math.abs(delta.x()) > Math.abs(delta.y())) {
-            double sign = Math.signum(delta.x());
-            return new VectorDouble(sign == 0 ? 1 : sign, 0);
-        }
-        double sign = Math.signum(delta.y());
-        return new VectorDouble(0, sign == 0 ? 1 : sign);
+        return rotate(localNormal, rectangleBody.orientation());
+    }
+
+    private static double penetrationDepth(Body rectangleBody, RectangleDimensions rectangle, VectorDouble point) {
+        VectorDouble localPoint = rotate(point.sub(rectangleBody.position()), -rectangleBody.orientation());
+        double remainingX = rectangle.halfWidth() - Math.abs(localPoint.x());
+        double remainingY = rectangle.halfHeight() - Math.abs(localPoint.y());
+        return Math.min(remainingX, remainingY);
     }
 
     private static Optional<VectorDouble> segmentIntersection(VectorDouble aStart, VectorDouble aEnd, VectorDouble bStart, VectorDouble bEnd) {
@@ -257,8 +302,9 @@ public final class CollisionDetection {
         return Optional.empty();
     }
 
-    private static boolean isPointInsideRectangle(VectorDouble point, double minX, double maxX, double minY, double maxY) {
-        return point.x() >= minX && point.x() <= maxX && point.y() >= minY && point.y() <= maxY;
+    private static boolean isPointInsideOrientedRectangle(VectorDouble point, Body body, RectangleDimensions rectangle) {
+        VectorDouble local = rotate(point.sub(body.position()), -body.orientation());
+        return Math.abs(local.x()) <= rectangle.halfWidth() && Math.abs(local.y()) <= rectangle.halfHeight();
     }
 
     private static VectorDouble closestPointOnSegment(VectorDouble start, VectorDouble end, VectorDouble point) {
@@ -270,6 +316,61 @@ public final class CollisionDetection {
         double t = point.sub(start).dotProduct(segment) / lengthSquared;
         double clampedT = Math.max(0, Math.min(1, t));
         return start.add(segment.scale(clampedT));
+    }
+
+    private static VectorDouble rotate(VectorDouble vector, double angle) {
+        return VectorDouble.rotatePoint(0, 0, angle, vector);
+    }
+
+    private static VectorDouble rectangleAxis(double orientation) {
+        return new VectorDouble(Math.cos(orientation), Math.sin(orientation));
+    }
+
+    private static VectorDouble rectanglePerpendicularAxis(double orientation) {
+        return new VectorDouble(-Math.sin(orientation), Math.cos(orientation));
+    }
+
+    private static Projection projectOnto(VectorDouble[] vertices, VectorDouble axis) {
+        double min = vertices[0].dotProduct(axis);
+        double max = min;
+        for (int i = 1; i < vertices.length; i++) {
+            double projection = vertices[i].dotProduct(axis);
+            min = Math.min(min, projection);
+            max = Math.max(max, projection);
+        }
+        return new Projection(min, max);
+    }
+
+    private static VectorDouble supportPoint(VectorDouble[] vertices, VectorDouble direction) {
+        VectorDouble furthest = vertices[0];
+        double maxProjection = furthest.dotProduct(direction);
+        for (int i = 1; i < vertices.length; i++) {
+            double projection = vertices[i].dotProduct(direction);
+            if (projection > maxProjection) {
+                maxProjection = projection;
+                furthest = vertices[i];
+            }
+        }
+        return furthest;
+    }
+
+    private static List<LineSegment> rectangleEdges(VectorDouble[] vertices) {
+        return List.of(
+                new LineSegment(vertices[0], vertices[1]),
+                new LineSegment(vertices[1], vertices[2]),
+                new LineSegment(vertices[2], vertices[3]),
+                new LineSegment(vertices[3], vertices[0])
+        );
+    }
+
+    private record Projection(double min, double max) {
+        double overlap(Projection other) {
+            double overlap = Math.min(max, other.max) - Math.max(min, other.min);
+            return overlap;
+        }
+    }
+
+    private record RectangleDimensions(double halfWidth, double halfHeight) {
     }
 
     private static Collision flipNormal(Collision collision, int firstIndex, int secondIndex) {

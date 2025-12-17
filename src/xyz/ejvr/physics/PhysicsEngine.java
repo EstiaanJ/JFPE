@@ -34,7 +34,8 @@ public final class PhysicsEngine {
         }
         return switch (body.shape()) {
             case Circle circle -> resolveCircleBoundary(body, boundary, circle);
-            case AxisAlignedRectangle rectangle -> resolveRectangleBoundary(body, boundary, rectangle);
+            case AxisAlignedRectangle rectangle -> resolveRectangleBoundary(body, boundary);
+            case RotatedRectangle rectangle -> resolveRectangleBoundary(body, boundary);
             case LineSegment line -> resolveLineBoundary(body, boundary, line);
         };
     }
@@ -63,35 +64,38 @@ public final class PhysicsEngine {
             vy = -Math.abs(vy) * restitution;
         }
 
-        return body.withKinematics(new VectorDouble(x, y), new VectorDouble(vx, vy));
+        return body.withLinearKinematics(new VectorDouble(x, y), new VectorDouble(vx, vy));
     }
 
-    private static Body resolveRectangleBoundary(Body body, Boundary boundary, AxisAlignedRectangle rectangle) {
+    private static Body resolveRectangleBoundary(Body body, Boundary boundary) {
         double x = body.position().x();
         double y = body.position().y();
         double vx = body.velocity().x();
         double vy = body.velocity().y();
         double restitution = body.restitution();
-        double halfWidth = rectangle.halfWidth();
-        double halfHeight = rectangle.halfHeight();
 
-        if (x - halfWidth < boundary.minX()) {
-            x = boundary.minX() + halfWidth;
+        Aabb aabb = body.aabb();
+        if (aabb.minX() < boundary.minX()) {
+            double correction = boundary.minX() - aabb.minX();
+            x += correction;
             vx = Math.abs(vx) * restitution;
-        } else if (x + halfWidth > boundary.maxX()) {
-            x = boundary.maxX() - halfWidth;
+        } else if (aabb.maxX() > boundary.maxX()) {
+            double correction = aabb.maxX() - boundary.maxX();
+            x -= correction;
             vx = -Math.abs(vx) * restitution;
         }
 
-        if (y - halfHeight < boundary.minY()) {
-            y = boundary.minY() + halfHeight;
+        if (aabb.minY() < boundary.minY()) {
+            double correction = boundary.minY() - aabb.minY();
+            y += correction;
             vy = Math.abs(vy) * restitution;
-        } else if (y + halfHeight > boundary.maxY()) {
-            y = boundary.maxY() - halfHeight;
+        } else if (aabb.maxY() > boundary.maxY()) {
+            double correction = aabb.maxY() - boundary.maxY();
+            y -= correction;
             vy = -Math.abs(vy) * restitution;
         }
 
-        return body.withKinematics(new VectorDouble(x, y), new VectorDouble(vx, vy));
+        return body.withLinearKinematics(new VectorDouble(x, y), new VectorDouble(vx, vy));
     }
 
     private static Body resolveLineBoundary(Body body, Boundary boundary, LineSegment line) {
@@ -129,6 +133,6 @@ public final class PhysicsEngine {
             vy = -Math.abs(vy) * restitution;
         }
 
-        return body.withKinematics(new VectorDouble(x, y), new VectorDouble(vx, vy));
+        return body.withLinearKinematics(new VectorDouble(x, y), new VectorDouble(vx, vy));
     }
 }

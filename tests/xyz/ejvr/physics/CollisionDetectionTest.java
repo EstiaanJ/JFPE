@@ -13,8 +13,8 @@ class CollisionDetectionTest {
 
     @Test
     void detectsCircleCircleOverlap() {
-        Body first = new Body(new Circle(1), new VectorDouble(0, 0), ZERO, ZERO, 1, 1, false);
-        Body second = new Body(new Circle(1), new VectorDouble(1.5, 0), ZERO, ZERO, 1, 1, false);
+        Body first = new Body(new Circle(1), new VectorDouble(0, 0), ZERO, ZERO, 0.0, 0.0, 0.0, 1, 1, 0, false);
+        Body second = new Body(new Circle(1), new VectorDouble(1.5, 0), ZERO, ZERO, 0.0, 0.0, 0.0, 1, 1, 0, false);
 
         Optional<Collision> collision = CollisionDetection.detect(0, 1, first, second);
 
@@ -31,8 +31,8 @@ class CollisionDetectionTest {
     @Test
     void detectsRectangleRectangleAlongMinorOverlap() {
         AxisAlignedRectangle rectangle = new AxisAlignedRectangle(1, 1);
-        Body first = new Body(rectangle, new VectorDouble(0, 0), ZERO, ZERO, 1, 1, false);
-        Body second = new Body(rectangle, new VectorDouble(1.5, 0.25), ZERO, ZERO, 1, 1, false);
+        Body first = new Body(rectangle, new VectorDouble(0, 0), ZERO, ZERO, 0.0, 0.0, 0.0, 1, 1, 0, false);
+        Body second = new Body(rectangle, new VectorDouble(1.5, 0.25), ZERO, ZERO, 0.0, 0.0, 0.0, 1, 1, 0, false);
 
         Optional<Collision> collision = CollisionDetection.detect(0, 1, first, second);
 
@@ -42,8 +42,8 @@ class CollisionDetectionTest {
         assertEquals(0.5, result.penetration(), 1e-9);
         assertEquals(1.0, result.normal().x(), 1e-9);
         assertEquals(0.0, result.normal().y(), 1e-9);
-        assertEquals(1.0, result.contactPoint().x(), 1e-9);
-        assertEquals(0.25, result.contactPoint().y(), 1e-9);
+        assertEquals(0.75, result.contactPoint().x(), 1e-9);
+        assertEquals(-0.875, result.contactPoint().y(), 1e-9);
     }
 
     @Test
@@ -53,11 +53,15 @@ class CollisionDetectionTest {
                 new VectorDouble(0, 0),
                 ZERO,
                 ZERO,
+                0.0,
+                0.0,
+                0.0,
                 1,
                 1,
+                0,
                 false
         );
-        Body circleBody = new Body(new Circle(1), new VectorDouble(0, 0.5), ZERO, ZERO, 1, 1, false);
+        Body circleBody = new Body(new Circle(1), new VectorDouble(0, 0.5), ZERO, ZERO, 0.0, 0.0, 0.0, 1, 1, 0, false);
 
         Optional<Collision> collision = CollisionDetection.detect(0, 1, lineBody, circleBody);
 
@@ -69,5 +73,17 @@ class CollisionDetectionTest {
         assertEquals(1.0, result.normal().y(), 1e-9);
         assertEquals(0.0, result.contactPoint().x(), 1e-9);
         assertEquals(0.0, result.contactPoint().y(), 1e-9);
+    }
+
+    @Test
+    void detectsCollisionsBetweenRotatedRectangles() {
+        RotatedRectangle rectangle = new RotatedRectangle(1, 0.5);
+        Body first = new Body(rectangle, new VectorDouble(0, 0), ZERO, ZERO, Math.PI / 4, 0.0, 0.0, 1, 0.8, 0.0, false);
+        Body second = new Body(rectangle, new VectorDouble(1.0, 0.2), ZERO, ZERO, -Math.PI / 6, 0.0, 0.0, 1, 0.8, 0.0, false);
+
+        Optional<Collision> collision = CollisionDetection.detect(0, 1, first, second);
+
+        assertTrue(collision.isPresent());
+        assertTrue(collision.orElseThrow().penetration() > 0);
     }
 }

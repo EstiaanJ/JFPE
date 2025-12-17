@@ -3,26 +3,27 @@
 ## Goals
 - Deterministic, functional-style updates using immutable records.
 - Pure Newtonian motion with simple impulse-based collision response.
-- Support for circles, axis-aligned rectangles, line segments, and world boundaries.
-- No broad-phase optimizations yet (brute-force narrow phase only).
+- Support for circles, axis-aligned rectangles, rotated rectangles, line segments, and world boundaries.
+- Broad-phase filtering with axis-aligned bounding boxes ahead of narrow-phase SAT/circle tests.
 
 ## Core Types
 - `VectorDouble`: Immutable 2D vector helper for geometry and kinematics.
 - `Shape` sealed interface: Implemented by `Circle`, `AxisAlignedRectangle`, and `LineSegment`.
-- `Body`: Composition of `Shape` with kinematic state (position, velocity, acceleration), mass, restitution, and immovable flag.
+- `Body`: Composition of `Shape` with kinematic state (position, velocity, acceleration), angular state (orientation, angular velocity/acceleration), mass properties, restitution, per-body drag, and immovable flag.
 - `Boundary`: Axis-aligned world limits used for clamping and reflecting kinematics.
 - `World`: Immutable aggregate of bodies and boundaries passed into simulation steps.
 
 ## Simulation Flow
-1. **Integration**: Advance each `Body` with constant acceleration to compute new velocity and position (Euler integration).
-2. **Boundary Resolution**: Clamp shapes against each `Boundary`, reflecting velocity components using the body's restitution.
-3. **Collision Detection** (narrow phase only):
+1. **Integration**: Advance each `Body` with constant acceleration to compute new velocity and position (Euler integration) while applying drag to linear and angular velocities.
+2. **Boundary Resolution**: Clamp shapes against each `Boundary` using their axis-aligned bounding boxes, reflecting velocity components using the body's restitution.
+3. **Broad Phase**: Cull non-intersecting body pairs via AABB overlap before narrow-phase checks.
+4. **Collision Detection** (narrow phase):
    - Circle ⟷ Circle
-   - Rectangle ⟷ Rectangle (axis-aligned AABBs)
-   - Circle ⟷ Rectangle
+   - Oriented Rectangle ⟷ Oriented Rectangle (SAT)
+   - Circle ⟷ Oriented Rectangle (local-space clamp)
    - Line Segment ⟷ Circle
-   - Line Segment ⟷ Rectangle
-4. **Collision Resolution**: Apply impulse-based response using combined restitution and inverse masses, plus positional correction along the contact normal.
+   - Line Segment ⟷ Oriented Rectangle
+5. **Collision Resolution**: Apply impulse-based response using combined restitution, inverse masses, inverse inertias, plus positional correction along the contact normal.
 5. **Output**: Return a new `World` instance with updated `Body` states; inputs remain unchanged.
 
 ## Extensibility Notes
