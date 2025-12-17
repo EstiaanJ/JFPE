@@ -43,7 +43,7 @@ class CollisionDetectionTest {
         assertEquals(1.0, result.normal().x(), 1e-9);
         assertEquals(0.0, result.normal().y(), 1e-9);
         assertEquals(0.75, result.contactPoint().x(), 1e-9);
-        assertEquals(-0.875, result.contactPoint().y(), 1e-9);
+        assertEquals(0.125, result.contactPoint().y(), 1e-9);
     }
 
     @Test

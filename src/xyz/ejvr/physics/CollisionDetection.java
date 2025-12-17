@@ -110,6 +110,8 @@ public final class CollisionDetection {
 
         double minimumOverlap = Double.POSITIVE_INFINITY;
         VectorDouble collisionAxis = null;
+        Projection firstCollisionProjection = null;
+        Projection secondCollisionProjection = null;
 
         for (VectorDouble axis : axes) {
             Projection firstProjection = projectOnto(firstVertices, axis);
@@ -123,6 +125,8 @@ public final class CollisionDetection {
             if (overlap < minimumOverlap) {
                 minimumOverlap = overlap;
                 collisionAxis = axis;
+                firstCollisionProjection = firstProjection;
+                secondCollisionProjection = secondProjection;
             }
         }
 
@@ -130,15 +134,25 @@ public final class CollisionDetection {
             return Optional.empty();
         }
 
-        VectorDouble normal = collisionAxis.normalize();
+        VectorDouble baseNormal = collisionAxis.normalize();
+        VectorDouble normal = baseNormal;
         VectorDouble delta = second.position().sub(first.position());
         if (delta.dotProduct(normal) < 0) {
             normal = normal.negate();
         }
 
-        VectorDouble firstSupport = supportPoint(firstVertices, normal);
-        VectorDouble secondSupport = supportPoint(secondVertices, normal.negate());
-        VectorDouble contactPoint = firstSupport.add(secondSupport).scale(0.5);
+        double overlapMin = Math.max(firstCollisionProjection.min(), secondCollisionProjection.min());
+        double overlapMax = Math.min(firstCollisionProjection.max(), secondCollisionProjection.max());
+        double contactNormalProjection = (overlapMin + overlapMax) * 0.5;
+
+        VectorDouble tangent = new VectorDouble(-baseNormal.y(), baseNormal.x());
+        Projection firstTangentProjection = projectOnto(firstVertices, tangent);
+        Projection secondTangentProjection = projectOnto(secondVertices, tangent);
+        double tangentOverlapMin = Math.max(firstTangentProjection.min(), secondTangentProjection.min());
+        double tangentOverlapMax = Math.min(firstTangentProjection.max(), secondTangentProjection.max());
+        double contactTangentProjection = (tangentOverlapMin + tangentOverlapMax) * 0.5;
+
+        VectorDouble contactPoint = baseNormal.scale(contactNormalProjection).add(tangent.scale(contactTangentProjection));
 
         return Optional.of(new Collision(firstIndex, secondIndex, normal, minimumOverlap, contactPoint));
     }
@@ -339,19 +353,6 @@ public final class CollisionDetection {
             max = Math.max(max, projection);
         }
         return new Projection(min, max);
-    }
-
-    private static VectorDouble supportPoint(VectorDouble[] vertices, VectorDouble direction) {
-        VectorDouble furthest = vertices[0];
-        double maxProjection = furthest.dotProduct(direction);
-        for (int i = 1; i < vertices.length; i++) {
-            double projection = vertices[i].dotProduct(direction);
-            if (projection > maxProjection) {
-                maxProjection = projection;
-                furthest = vertices[i];
-            }
-        }
-        return furthest;
     }
 
     private static List<LineSegment> rectangleEdges(VectorDouble[] vertices) {
