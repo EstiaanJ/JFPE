@@ -13,7 +13,7 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-final class PhysicsEnginePerformanceTest {
+class PhysicsEnginePerformanceTest {
 
     private static final VectorDouble ZERO = new VectorDouble(0, 0);
     private static final Random RANDOM = new Random(42);
@@ -26,7 +26,7 @@ final class PhysicsEnginePerformanceTest {
                 .toList();
 
         List<Double> fpsSamples = new ArrayList<>();
-        IntStream.range(0, 5).forEach(iteration -> {
+        IntStream.range(0, 15).forEach(iteration -> {
             World world = new World(seedBodies, List.of(boundary));
             fpsSamples.add(measureFramesPerSecond(world, 1.0 / 120.0));
         });

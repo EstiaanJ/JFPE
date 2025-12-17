@@ -7,7 +7,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-final class CollisionDetectionTest {
+class CollisionDetectionTest {
 
     private static final VectorDouble ZERO = new VectorDouble(0, 0);
 
