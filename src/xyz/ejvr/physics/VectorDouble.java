@@ -59,7 +59,7 @@ public record VectorDouble(double x, double y) {
     }
 
     public double crossProduct2D(VectorDouble vec) {
-        return (x * vec.y) - (y * vec.x);
+        return (y * vec.x) - (x * vec.y);
     }
 
     public VectorDouble add(VectorDouble vec) {
