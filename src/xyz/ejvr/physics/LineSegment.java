@@ -33,4 +33,10 @@ public record LineSegment(VectorDouble start, VectorDouble end) implements Shape
     public double boundingRadius() {
         return Math.max(start.radius(), end.radius());
     }
+
+    @Override
+    public double momentOfInertia(double mass) {
+        double length = length();
+        return (mass / 12.0) * length * length;
+    }
 }

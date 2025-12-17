@@ -17,4 +17,9 @@ public record Circle(double radius) implements Shape {
     public double boundingRadius() {
         return radius;
     }
+
+    @Override
+    public double momentOfInertia(double mass) {
+        return 0.5 * mass * radius * radius;
+    }
 }

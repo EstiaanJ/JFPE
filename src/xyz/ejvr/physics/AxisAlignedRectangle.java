@@ -25,4 +25,11 @@ public record AxisAlignedRectangle(double halfWidth, double halfHeight) implemen
     public double boundingRadius() {
         return Math.hypot(halfWidth, halfHeight);
     }
+
+    @Override
+    public double momentOfInertia(double mass) {
+        double width = width();
+        double height = height();
+        return (mass / 12.0) * (width * width + height * height);
+    }
 }

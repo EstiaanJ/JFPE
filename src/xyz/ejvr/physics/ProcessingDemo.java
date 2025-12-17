@@ -79,8 +79,12 @@ public class ProcessingDemo extends PApplet {
                 new VectorDouble(x, y),
                 velocity,
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 radius,
                 0.95,
+                0.01,
                 false
         );
     }

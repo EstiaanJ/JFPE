@@ -16,8 +16,12 @@ class PhysicsEngineTest {
                 new VectorDouble(0, 0),
                 new VectorDouble(2, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
 
@@ -35,8 +39,12 @@ class PhysicsEngineTest {
                 new VectorDouble(1.2, 1.0),
                 new VectorDouble(-3.0, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
 
@@ -56,8 +64,12 @@ class PhysicsEngineTest {
                 new VectorDouble(0, 0),
                 new VectorDouble(1.0, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
         Body second = new Body(
@@ -65,8 +77,12 @@ class PhysicsEngineTest {
                 new VectorDouble(1.5, 0),
                 new VectorDouble(-1.0, 0),
                 new VectorDouble(0, 0),
+                0.0,
+                0.0,
+                0.0,
                 1.0,
                 1.0,
+                0.0,
                 false
         );
 

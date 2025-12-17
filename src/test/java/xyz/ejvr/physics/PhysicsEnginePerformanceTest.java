@@ -91,8 +91,8 @@ final class PhysicsEnginePerformanceTest {
     }
 
     private static double measureCollisionPipeline(Shape firstShape, Shape secondShape, double speed, double durationSeconds) {
-        Body first = new Body(firstShape, new VectorDouble(-5, 0), new VectorDouble(speed, 0), ZERO, 1, 1, false);
-        Body second = new Body(secondShape, new VectorDouble(5, 0), new VectorDouble(-speed, 0), ZERO, 1, 1, false);
+        Body first = new Body(firstShape, new VectorDouble(-5, 0), new VectorDouble(speed, 0), ZERO, 0.0, 0.0, 0.0, 1, 1, 0.0, false);
+        Body second = new Body(secondShape, new VectorDouble(5, 0), new VectorDouble(-speed, 0), ZERO, 0.0, 0.0, 0.0, 1, 1, 0.0, false);
 
         List<Body> bodies = List.of(first, second);
         double elapsed = 0.0;
@@ -122,7 +122,7 @@ final class PhysicsEnginePerformanceTest {
         double angle = RANDOM.nextDouble() * Math.PI * 2;
         double speed = 30 + RANDOM.nextDouble() * 70;
         VectorDouble velocity = new VectorDouble(Math.cos(angle) * speed, Math.sin(angle) * speed);
-        return new Body(new Circle(radius), new VectorDouble(x, y), velocity, ZERO, 1, 0.8, false);
+        return new Body(new Circle(radius), new VectorDouble(x, y), velocity, ZERO, 0.0, 0.0, 0.0, 1, 0.8, 0.0, false);
     }
 
     private static double median(List<Double> values) {
