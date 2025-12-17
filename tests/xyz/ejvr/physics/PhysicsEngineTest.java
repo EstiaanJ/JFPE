@@ -45,7 +45,7 @@ class PhysicsEngineTest {
         World result = PhysicsEngine.step(world, 0.5);
 
         Body updatedBody = result.bodies().getFirst();
-        assertEquals(boundary.minX() + ((Circle) body.shape()).radius(), updatedBody.position().x());
+        assertEquals(1.0 + ((Circle) body.shape()).radius(), updatedBody.position().x());
         assertTrue(updatedBody.velocity().x() > 0);
     }
 
